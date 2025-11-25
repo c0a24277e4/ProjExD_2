@@ -75,6 +75,42 @@ def init_bb_imgs() -> tuple[list[pg.Surface], list[int]]:
     return bb_imgs, bb_accs
 
 
+def calc_orientation(org: pg.Rect, dst: pg.Rect, current_xy: tuple[float, float]) -> tuple[float, float]:
+    """
+    org: 爆弾Rect
+    dst: こうかとんRect
+    current_xy: 直前の移動方向 (vx, vy)
+    return: 新しい移動方向ベクトル (vx, vy)
+    """
+    ox, oy = org.center
+    dx, dy = dst.center
+
+    # 差ベクトル（こうかとん - 爆弾）
+    diff_x = dx - ox
+    diff_y = dy - oy
+
+    # 距離（ノルム）
+    dist2 = diff_x ** 2 + diff_y ** 2
+    dist = dist2 ** 0.5
+
+    # 距離が300未満 → current_xy（慣性）を維持
+    if dist < 300:
+        return current_xy
+
+    # 正規化後の大きさ √50（=5×√2 に相当）
+    speed = 50 ** 0.5  # ≒ 7.07
+
+    if dist != 0:
+        nx = diff_x / dist * speed
+        ny = diff_y / dist * speed
+    else:
+        # 万が一同じ座標にいる場合はそのまま
+        nx, ny = current_xy
+
+    return (nx, ny)
+
+
+
 def get_kk_imgs() -> dict[tuple[int, int], pg.Surface]:
     """移動量タプル → こうかとん画像 を返す辞書を作成"""
     base_img = pg.image.load("fig/3.png")
@@ -102,102 +138,84 @@ def get_kk_imgs() -> dict[tuple[int, int], pg.Surface]:
 def main():
     pg.display.set_caption("逃げろ！こうかとん")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
-    bg_img = pg.image.load("fig/pg_bg.jpg")    
+    bg_img = pg.image.load("fig/pg_bg.jpg")
+
+    # こうかとん初期画像
     kk_img = pg.transform.rotozoom(pg.image.load("fig/3.png"), 0, 0.9)
-    kk_rct = kk_img.get_rect()
-    kk_rct.center = 300, 200
-    bb_img = pg.Surface((20, 20)) #空のSurface
-    pg.draw.circle(bb_img, (255, 0, 0), (10, 10), 10) #半径10の赤い円を描画
-    bb_img.set_colorkey((0, 0, 0)) #黒色の透過色の背景
-    bb_rct = bb_img.get_rect() #爆弾rect
-    bb_rct.centerx = random.randint(0, WIDTH) #爆弾横座標
-    bb_rct.centery = random.randint(0, HEIGHT) #爆弾縦座標
-    vx, vy = +5, +5 # 爆弾の横速度，縦速度
-    
-    # while文の前に呼び出してSurfaceリストと加速度リストを取得
+    kk_rct = kk_img.get_rect(center=(300, 200))
+
+    # 爆弾初期設定
+    bb_img = pg.Surface((20, 20))
+    pg.draw.circle(bb_img, (255, 0, 0), (10, 10), 10)
+    bb_img.set_colorkey((0, 0, 0))
+    bb_rct = bb_img.get_rect(
+        center=(random.randint(0, WIDTH), random.randint(0, HEIGHT))
+    )
+    vx, vy = +5, +5
+
+    # 爆弾成長画像 & 加速度
     bb_imgs, bb_accs = init_bb_imgs()
-    
+
+    # こうかとん8方向画像
     kk_imgs = get_kk_imgs()
 
     clock = pg.time.Clock()
     tmr = 0
+
     while True:
         for event in pg.event.get():
-            if event.type == pg.QUIT: 
+            if event.type == pg.QUIT:
                 return
-            
-        if kk_rct.colliderect(bb_rct): #こうかとんと爆弾が衝突したら
+
+        # --- 衝突 ---
+        if kk_rct.colliderect(bb_rct):
             game_over(screen)
             return
-        
-        screen.blit(bg_img, [0, 0]) 
-        screen.blit(bb_img, bb_rct)
-        
-        
-        # tmrはフレームタイマーなど
-        idx = min(tmr // 500, 9)  # 0～9でSurfaceと加速度を選択
-        bb_img = bb_imgs[idx]
-        avx = vx * bb_accs[idx]
-        avy = vy * bb_accs[idx]
 
-        # 爆弾Rectのサイズ更新
-        bb_rct.width = bb_img.get_rect().width
-        bb_rct.height = bb_img.get_rect().height
+        # --- 背景 ---
+        screen.blit(bg_img, (0, 0))
 
-        # 移動
-        bb_rct.move_ip(avx, avy)
-
+        # --- キー入力 ---
         key_lst = pg.key.get_pressed()
         sum_mv = [0, 0]
-        # if key_lst[pg.K_UP]:
-        #     sum_mv[1] -= 5
-        # if key_lst[pg.K_DOWN]:
-        #     sum_mv[1] += 5
-        # if key_lst[pg.K_LEFT]:
-        #     sum_mv[0] -= 5
-        # if key_lst[pg.K_RIGHT]:
-        #     sum_mv[0] += 5
-        
-        for key, mv  in DELTA.items():
+        for key, mv in DELTA.items():
             if key_lst[key]:
-                sum_mv[0] += mv[0] #横方向の移動量
-                sum_mv[1] += mv[1] #縦方向の移動量 
-        
-        
+                sum_mv[0] += mv[0]
+                sum_mv[1] += mv[1]
+
         kk_rct.move_ip(sum_mv)
-        if check_bound(kk_rct) != (True, True): #画面外なら
-            kk_rct.move_ip(-sum_mv[0], -sum_mv[1]) #移動を無かったことにする
-            
-            
+        if check_bound(kk_rct) != (True, True):
+            kk_rct.move_ip(-sum_mv[0], -sum_mv[1])
+
+        # こうかとんの向き画像
+        kk_img = kk_imgs.get((sum_mv[0], sum_mv[1]), kk_imgs[(0, 0)])
         screen.blit(kk_img, kk_rct)
-        
-        #爆弾の成長＆加速
-        idx = min(tmr // 500, 9)  # 段階 0〜9
+
+        # --- 爆弾の成長 ---
+        idx = min(tmr // 500, 9)
         bb_img = bb_imgs[idx]
-        
+
         # サイズ更新
         bb_rct.width = bb_img.get_rect().width
         bb_rct.height = bb_img.get_rect().height
 
-        # 加速
+        # --- 爆弾の追従方向更新 ---
+        vx, vy = calc_orientation(bb_rct, kk_rct, (vx, vy))
         avx = vx * bb_accs[idx]
         avy = vy * bb_accs[idx]
         bb_rct.move_ip(avx, avy)
-        
-        # 反射        
+
+        # --- 画面端反射 ---
         yoko, tate = check_bound(bb_rct)
         if not yoko:
-            vx *= -1 #横方向にはみ出てたら
+            vx *= -1
         if not tate:
-            vy *= -1 #縦方向にはみ出たら
+            vy *= -1
         bb_rct.move_ip(vx, vy)
-        
-        # sum_mv をタプル化 → その方向のこうかとん画像に差し替え
-        kk_img = kk_imgs.get((sum_mv[0], sum_mv[1]), kk_imgs[(0, 0)])
-        screen.blit(kk_img, kk_rct)
 
-        
+        # --- 爆弾描画 ---
         screen.blit(bb_img, bb_rct)
+
         pg.display.update()
         tmr += 1
         clock.tick(50)

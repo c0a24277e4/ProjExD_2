@@ -75,6 +75,30 @@ def init_bb_imgs() -> tuple[list[pg.Surface], list[int]]:
     return bb_imgs, bb_accs
 
 
+def get_kk_imgs() -> dict[tuple[int, int], pg.Surface]:
+    """移動量タプル → こうかとん画像 を返す辞書を作成"""
+    base_img = pg.image.load("fig/3.png")
+
+    kk_imgs = {}
+
+    # 8方向分の角度指定
+    angle_map = {
+        (0, 0): 0,        # 静止
+        (+5, 0): -90,     # 右
+        (+5, -5): -45,    # 右上
+        (0, -5): 0,       # 上
+        (-5, -5): 45,     # 左上
+        (-5, 0): 90,      # 左
+        (-5, +5): 135,    # 左下
+        (0, +5): 180,     # 下
+        (+5, +5): -135    # 右下
+    }
+
+    for mv, ang in angle_map.items():
+        kk_imgs[mv] = pg.transform.rotozoom(base_img, ang, 0.9)
+
+    return kk_imgs
+
 def main():
     pg.display.set_caption("逃げろ！こうかとん")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
@@ -93,6 +117,8 @@ def main():
     # while文の前に呼び出してSurfaceリストと加速度リストを取得
     bb_imgs, bb_accs = init_bb_imgs()
     
+    kk_imgs = get_kk_imgs()
+
     clock = pg.time.Clock()
     tmr = 0
     while True:
@@ -165,6 +191,12 @@ def main():
         if not tate:
             vy *= -1 #縦方向にはみ出たら
         bb_rct.move_ip(vx, vy)
+        
+        # sum_mv をタプル化 → その方向のこうかとん画像に差し替え
+        kk_img = kk_imgs.get((sum_mv[0], sum_mv[1]), kk_imgs[(0, 0)])
+        screen.blit(kk_img, kk_rct)
+
+        
         screen.blit(bb_img, bb_rct)
         pg.display.update()
         tmr += 1

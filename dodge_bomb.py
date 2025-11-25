@@ -60,6 +60,21 @@ def game_over(screen: pg.Surface) -> None:
     time.sleep(5)
 
 
+#爆弾の画像リスト & 加速度リスト作成関数
+def init_bb_imgs() -> tuple[list[pg.Surface], list[int]]:
+    bb_imgs = []
+    bb_accs = [a for a in range(1, 11)]
+
+    for r in range(1, 11):  # 1〜10段階
+        size = 20 * r
+        bb_img = pg.Surface((size, size))
+        pg.draw.circle(bb_img, (255, 0, 0), (size//2, size//2), size//2)
+        bb_img.set_colorkey((0, 0, 0))
+        bb_imgs.append(bb_img)
+
+    return bb_imgs, bb_accs
+
+
 def main():
     pg.display.set_caption("逃げろ！こうかとん")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
@@ -75,6 +90,9 @@ def main():
     bb_rct.centery = random.randint(0, HEIGHT) #爆弾縦座標
     vx, vy = +5, +5 # 爆弾の横速度，縦速度
     
+    # while文の前に呼び出してSurfaceリストと加速度リストを取得
+    bb_imgs, bb_accs = init_bb_imgs()
+    
     clock = pg.time.Clock()
     tmr = 0
     while True:
@@ -88,6 +106,20 @@ def main():
         
         screen.blit(bg_img, [0, 0]) 
         screen.blit(bb_img, bb_rct)
+        
+        
+        # tmrはフレームタイマーなど
+        idx = min(tmr // 500, 9)  # 0～9でSurfaceと加速度を選択
+        bb_img = bb_imgs[idx]
+        avx = vx * bb_accs[idx]
+        avy = vy * bb_accs[idx]
+
+        # 爆弾Rectのサイズ更新
+        bb_rct.width = bb_img.get_rect().width
+        bb_rct.height = bb_img.get_rect().height
+
+        # 移動
+        bb_rct.move_ip(avx, avy)
 
         key_lst = pg.key.get_pressed()
         sum_mv = [0, 0]
@@ -109,7 +141,24 @@ def main():
         kk_rct.move_ip(sum_mv)
         if check_bound(kk_rct) != (True, True): #画面外なら
             kk_rct.move_ip(-sum_mv[0], -sum_mv[1]) #移動を無かったことにする
+            
+            
         screen.blit(kk_img, kk_rct)
+        
+        #爆弾の成長＆加速
+        idx = min(tmr // 500, 9)  # 段階 0〜9
+        bb_img = bb_imgs[idx]
+        
+        # サイズ更新
+        bb_rct.width = bb_img.get_rect().width
+        bb_rct.height = bb_img.get_rect().height
+
+        # 加速
+        avx = vx * bb_accs[idx]
+        avy = vy * bb_accs[idx]
+        bb_rct.move_ip(avx, avy)
+        
+        # 反射        
         yoko, tate = check_bound(bb_rct)
         if not yoko:
             vx *= -1 #横方向にはみ出てたら

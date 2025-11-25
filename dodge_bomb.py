@@ -49,6 +49,11 @@ def main():
         for event in pg.event.get():
             if event.type == pg.QUIT: 
                 return
+            
+        if kk_rct.colliderect(bb_rct): #こうかとんと爆弾が衝突したら
+            print("Game Over")
+            return
+        
         screen.blit(bg_img, [0, 0]) 
         screen.blit(bb_img, bb_rct)
 

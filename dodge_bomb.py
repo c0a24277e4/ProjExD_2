@@ -33,25 +33,25 @@ def game_over(screen: pg.Surface) -> None:
     """
     画面を暗転し，泣いているこうかとんとGame Overを5秒表示する
     """
-    #黒い矩形のSurfaceを作成
+    # 黒い矩形のSurfaceを作成
     black_surf = pg.Surface((WIDTH, HEIGHT))
     black_surf.fill((0, 0, 0))
     black_surf.set_alpha(150)  # 半透明
 
-    #まず画面に暗転レイヤーをblit
+    # まず画面に暗転レイヤーをblit
     screen.blit(black_surf, (0, 0))
 
-    #Game Over文字を作成
+    # Game Over文字を作成
     font = pg.font.Font(None, 80)
     txt_surf = font.render("Game Over", True, (255, 255, 255))
     txt_rect = txt_surf.get_rect(center=(WIDTH//2, HEIGHT//2 - 50))
 
-    #泣いているこうかとん画像のロード
+    # 泣いているこうかとん画像のロード
     cry_img = pg.transform.rotozoom(pg.image.load("fig/8.png"), 0, 1.5)
     cry_left_rect = cry_img.get_rect(center=(txt_rect.left - 50, txt_rect.centery))
     cry_right_rect = cry_img.get_rect(center=(txt_rect.right + 50, txt_rect.centery))
 
-    #黒いSurfaceに文字と画像をblit
+    # 黒いSurfaceに文字と画像をblit
     screen.blit(txt_surf, txt_rect)
     screen.blit(cry_img, cry_left_rect)
     screen.blit(cry_img, cry_right_rect)
@@ -60,7 +60,7 @@ def game_over(screen: pg.Surface) -> None:
     time.sleep(5)
 
 
-#爆弾の画像リスト & 加速度リスト作成関数
+# 爆弾の画像リスト & 加速度リスト作成関数
 def init_bb_imgs() -> tuple[list[pg.Surface], list[int]]:
     bb_imgs = []
     bb_accs = [a for a in range(1, 11)]
